@@ -57,16 +57,22 @@ df_chl <- foreach(i = seq_len(length(a_t)),
                                                  d8_pntr = file_dir,
                                                  output = channel)
                     
-                    sf_chl <- st_read(dsn = tempdir(), layer = "channel") %>% 
-                      st_set_crs(4326) %>% 
-                      st_transform(32654) %>% 
+                    df_length <- st_read(dsn = tempdir(), layer = "channel") %>% 
+                      st_set_crs(4326) %>% # wgs84
+                      st_transform(32654) %>% # utm54n
                       st_join(sf_wsd) %>% # spatial intersect with watershed polygons
                       mutate(length = units::set_units(st_length(.), "km")) %>% 
                       as_tibble() %>% 
                       mutate(length = as.numeric(length)) %>% 
                       drop_na(wsd_id) %>% 
                       group_by(wsd_id) %>% 
-                      filter(n() > 2) %>% # select watersheds more than 2 links
+                      filter(n() > 2) %>%  # select watersheds more than 2 links
+                      ungroup()
+                    
+                    save(df_length,
+                         file = here::here(paste0("data_fmt/df_length_wsd", i, ".RData")))
+                    
+                    df_summary <- df_length %>% 
                       group_by(wsd_id) %>% 
                       summarize(rate = fitdistrplus::fitdist(length, "exp")$estimate, # rate parameter
                                 mean = 1 / rate, # mean link length
@@ -78,7 +84,7 @@ df_chl <- foreach(i = seq_len(length(a_t)),
                                 ) %>% 
                       mutate(a_t = a_t[i])
                     
-                    return(sf_chl)
+                    return(df_summary)
                   }
 
 ## save data

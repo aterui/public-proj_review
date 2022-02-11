@@ -43,7 +43,7 @@ df_m <- df_chl_filtered %>%
 
 # figure ------------------------------------------------------------------
 
-g <- df_m %>% 
+g1 <- df_m %>% 
   ggplot(aes(x = a_t,
              y = scl_rate,
              color = k,
@@ -53,10 +53,8 @@ g <- df_m %>%
   geom_hline(aes(yintercept = k,
                  color = k)) +
   facet_wrap(facets = ~rank, ncol = 6) +
-  labs(x = expression(A[T]),
-       y = expression("Rescaled rate parameter ("*lambda*"/"*A[T]^z*")")) +
+  labs(x = expression(A[T]~"("*km^{-2}*")"),
+       y = expression("Rescaled rate parameter ("*lambda*"')")) +
   scale_color_viridis_c() +
   guides(alpha = "none") +
   theme_bw()
-
-print(g)
