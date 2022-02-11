@@ -2,7 +2,9 @@
 # setup -------------------------------------------------------------------
 
 rm(list = ls())
-pacman::p_load(tidyverse)
+pacman::p_load(tidyverse,
+               sf,
+               foreach)
 
 # analysis ----------------------------------------------------------------
 
@@ -10,7 +12,7 @@ pacman::p_load(tidyverse)
 ## small watersheds could have an issue of estimating the rate parameter
 ## i.e., the number of links is limited
 
-## load river network data
+## network properties ####
 load(file = here::here("data_fmt/df_chl.RData"))
 
 df_chl_filtered <- df_chl %>% 
@@ -41,9 +43,47 @@ df_m <- df_chl_filtered %>%
   mutate(scl_rate = rate / (a_t)^z)
 
 
+## link length ####
+
+rdata <- list.files(path = here::here("data_fmt"),
+                    full.names = TRUE) %>% 
+  as_tibble() %>% 
+  filter(str_detect(.$value, "df_length")) %>% 
+  pull()
+
+df_link <- foreach(i = seq_len(length(rdata)),
+                   .combine = bind_rows) %do% {
+                  
+                     load(file = rdata[i])
+                     df_length <- mutate(df_length,
+                                         a_t = str_extract(rdata[i], pattern = "\\d{1,}"),
+                                         a_t = as.numeric(a_t))
+                     
+                     return(df_length)
+                   }
+
+
+df_link %>% 
+  filter(wsd_id %in% unique(z$wsd_id)) %>%
+  ggplot(aes(x = log(length),
+             fill = factor(a_t))) +
+  geom_histogram(alpha = 0.6,
+                 binwidth = 0.1)# +
+  #facet_wrap(facets = ~wsd_id,
+  #           scales = "free_y")
+
+tibble(x = log(rexp(10000))) %>% 
+  ggplot() +
+  geom_histogram(aes(x = x),
+                 binwidth = 0.1)
+
+
+
 # figure ------------------------------------------------------------------
 
-g1 <- df_m %>% 
+g1
+
+g2 <- df_m %>% 
   ggplot(aes(x = a_t,
              y = scl_rate,
              color = k,
