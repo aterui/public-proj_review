@@ -16,24 +16,24 @@ pacman::p_load(tidyverse,
 load(file = here::here("data_fmt/df_chl.RData"))
 
 df_chl_filtered <- df_chl %>% 
-  filter(area > units::set_units(300, "km^2")) %>% # select watersheds > 300 km^2
+  filter(area > units::set_units(300, "km^2")) %>% # watersheds > 300km^2 were selected
   group_by(wsd_id) %>%
   filter(n() == n_distinct(.$a_t)) %>% 
   ungroup() %>% 
   mutate(wsd_id = factor(wsd_id)) 
 
 ## power law scaling between rate and A_T  
-fit <- lme4::lmer(log(rate) ~ 
-                    log(a_t) + 
-                    (1 + log(a_t) | wsd_id),
-                  df_chl_filtered)
+fit <- glmmTMB::glmmTMB(log(rate) ~ 
+                          log(a_t) + 
+                          (1 + log(a_t) | wsd_id),
+                        df_chl_filtered)
 
-z <- coef(fit)$wsd_id %>% 
+z <- coef(fit)[[1]]$wsd_id %>% 
   mutate(wsd_id = as.factor(rownames(.))) %>% 
   as_tibble() %>% 
   dplyr::select(ln_k = `(Intercept)`, # ln scaling constant
                 z = `log(a_t)`, # scaling exponent
-                wsd_id) %>% 
+                wsd_id) %>%
   mutate(k = exp(ln_k)) %>% # scaling constant
   arrange(desc(k)) %>% 
   mutate(rank = seq_len(nrow(.)))
@@ -63,25 +63,38 @@ df_link <- foreach(i = seq_len(length(rdata)),
                    }
 
 
-df_link %>% 
+df_freq <- df_link %>% 
+  mutate(wsd_id = factor(wsd_id)) %>% 
   filter(wsd_id %in% unique(z$wsd_id)) %>%
-  ggplot(aes(x = log(length),
-             fill = factor(a_t))) +
-  geom_histogram(alpha = 0.6,
-                 binwidth = 0.1)# +
-  #facet_wrap(facets = ~wsd_id,
-  #           scales = "free_y")
-
-tibble(x = log(rexp(10000))) %>% 
-  ggplot() +
-  geom_histogram(aes(x = x),
-                 binwidth = 0.1)
-
-
+  group_by(wsd_id, a_t) %>% 
+  summarize(class = as.numeric(names(table(ceiling(length)))),
+            freq = c(table(ceiling(length))),
+            cum_freq = cumsum(freq),
+            prop = freq / n(),
+            cum_prop = cum_freq / n()) %>% 
+  ungroup() %>% 
+  left_join(df_m, by = c("wsd_id", "a_t")) %>% 
+  mutate(cum_prob = pexp(class, rate = rate))
+  
 
 # figure ------------------------------------------------------------------
 
-g1
+g1 <- df_freq %>% 
+  ggplot(aes(x = class,
+             y = cum_prop,
+             color = factor(a_t))) +
+  geom_point(alpha = 0.5,
+             size = 0.2) + 
+  geom_line(aes(x = class,
+                y = cum_prob),
+            alpha = 0.5) + 
+  facet_wrap(facets = ~rank,
+             ncol = 6,
+             scales = "free") +
+  labs(y = "Cumulative proportion or probability",
+       x = "Length distance class (km)",
+       color = expression(A[T]~"("*km^2*")")) +
+  theme_bw()
 
 g2 <- df_m %>% 
   ggplot(aes(x = a_t,
