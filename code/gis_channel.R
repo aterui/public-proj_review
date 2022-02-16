@@ -40,7 +40,8 @@ writeRaster(fdir,
             overwrite = TRUE)
 
 ## objects for watershed analysis
-streamgrid <- paste0(tempdir(), "\\streamgrid.tif")
+stream_grid <- paste0(tempdir(), "\\stream_grid.tif")
+stream_order <- paste0(tempdir(), "\\stream_order.tif")
 channel <- paste0(tempdir(), "\\channel.shp")
 a_t <- seq(1, 10, by = 1) # threshold values for stream extraction (unit km^2)
 
@@ -49,11 +50,16 @@ df_chl <- foreach(i = seq_len(length(a_t)),
                     
                     # stream grid extraction
                     wbt_extract_streams(flow_accum = file_upa,
-                                        output = streamgrid,
+                                        output = stream_grid,
                                         threshold = a_t[i])
                     
+                    # horton stream order
+                    wbt_strahler_stream_order(d8_pntr = file_dir,
+                                              streams = stream_grid,
+                                              output = stream_order)
+                    
                     # grid to vector
-                    wbt_raster_streams_to_vector(streams = streamgrid,
+                    wbt_raster_streams_to_vector(streams = stream_order,
                                                  d8_pntr = file_dir,
                                                  output = channel)
                     
@@ -79,7 +85,7 @@ df_chl <- foreach(i = seq_len(length(a_t)),
                                 tl = sum(length), # total river length
                                 p_branch = pexp(1, rate), # branching probability per 1km river distance
                                 n_branch = n(), # number of links
-                                p_r = n_branch / tl, # branching ration ~ rate parameter
+                                p_r = n_branch / tl, # branching ratio ~ rate parameter
                                 area = unique(area) # total watershed area A (unit km^2)
                                 ) %>% 
                       mutate(a_t = a_t[i])
