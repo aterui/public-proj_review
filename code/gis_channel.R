@@ -7,7 +7,8 @@ pacman::p_load(sf,
                whitebox,
                mapview,
                tidyverse,
-               foreach)
+               foreach,
+               igraph)
 
 source(here::here("code/function_arc2d8.R"))
 
@@ -41,8 +42,12 @@ writeRaster(fdir,
 
 ## objects for watershed analysis
 stream_grid <- paste0(tempdir(), "\\stream_grid.tif")
-stream_order <- paste0(tempdir(), "\\stream_order.tif")
+trib <- paste0(tempdir(), "\\trib.tif")
+order <- paste0(tempdir(), "\\order.tif")
+triborder <- paste0(tempdir(), "\\triborder.tif")
+order_length <- paste0(tempdir(), "\\order_length.tif")
 channel <- paste0(tempdir(), "\\channel.shp")
+tributary <- paste0(tempdir(), "\\tributary.shp")
 a_t <- seq(1, 10, by = 1) # threshold values for stream extraction (unit km^2)
 
 df_chl <- foreach(i = seq_len(length(a_t)),
@@ -53,20 +58,41 @@ df_chl <- foreach(i = seq_len(length(a_t)),
                                         output = stream_grid,
                                         threshold = a_t[i])
                     
-                    # horton stream order
-                    wbt_strahler_stream_order(d8_pntr = file_dir,
-                                              streams = stream_grid,
-                                              output = stream_order)
+                    # strahler stream order id
+                    wbt_strahler_stream_order(streams = stream_grid,
+                                              d8_pntr = file_dir,
+                                              output = order)
                     
-                    # grid to vector
-                    wbt_raster_streams_to_vector(streams = stream_order,
+                    # tributary id
+                    wbt_tributary_identifier(d8_pntr = file_dir,
+                                             streams = stream_grid,
+                                             output = trib)
+                    
+                    # stream vector: order and tributary id
+                    wbt_raster_streams_to_vector(streams = order,
                                                  d8_pntr = file_dir,
                                                  output = channel)
                     
-                    df_length <- st_read(dsn = tempdir(), layer = "channel") %>% 
-                      st_set_crs(4326) %>% # wgs84
-                      st_transform(32654) %>% # utm54n
-                      st_join(sf_wsd) %>% # spatial intersect with watershed polygons
+                    wbt_raster_streams_to_vector(streams = trib,
+                                                 d8_pntr = file_dir,
+                                                 output = tributary)
+                    
+                    x <- st_read(dsn = tempdir(), layer = "channel") %>% 
+                      st_set_crs(4326) %>% 
+                      st_transform(32654)
+                    
+                    y <- st_read(dsn = tempdir(), layer = "tributary") %>% 
+                      st_set_crs(4326) %>% 
+                      st_transform(32654)
+                    
+                    # assign watershed
+                    sf_channel <- st_join(x, y, join = st_contains) %>% 
+                      select(order = STRM_VAL.x,
+                             tributary = STRM_VAL.y)
+                    
+                    # length
+                    df_length <- sf_channel %>%
+                      st_join(sf_wsd) %>% 
                       mutate(length = units::set_units(st_length(.), "km")) %>% 
                       as_tibble() %>% 
                       mutate(length = as.numeric(length)) %>% 
@@ -85,8 +111,8 @@ df_chl <- foreach(i = seq_len(length(a_t)),
                                 tl = sum(length), # total river length
                                 p_branch = pexp(1, rate), # branching probability per 1km river distance
                                 n_branch = n(), # number of links
-                                p_r = n_branch / tl, # branching ratio ~ rate parameter
-                                area = unique(area) # total watershed area A (unit km^2)
+                                p_r = n_branch / tl,
+                                area = unique(area) # branching ratio ~ rate parameter
                                 ) %>% 
                       mutate(a_t = a_t[i])
                     
