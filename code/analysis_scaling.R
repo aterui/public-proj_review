@@ -130,7 +130,7 @@ g1 <- df_freq %>%
                 y = cum_prob),
             alpha = 0.5) + 
   facet_wrap(facets = ~rank,
-             ncol = 6,
+             ncol = 5,
              scales = "free") +
   labs(y = "Cumulative proportion or probability",
        x = "Length distance class (km)",
@@ -148,7 +148,8 @@ g2 <- df_m %>%
   geom_line() +
   geom_hline(aes(yintercept = k,
                  color = k)) +
-  facet_wrap(facets = ~rank, ncol = 6) +
+  facet_wrap(facets = ~rank,
+             ncol = 5) +
   labs(x = expression(A[T]~"("*km^{-2}*")"),
        y = expression("Rescaled rate parameter ("*lambda*"')")) +
   scale_color_viridis_c() +
