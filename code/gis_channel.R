@@ -85,7 +85,6 @@ df_chl <- foreach(i = seq_len(length(a_t)),
                       st_set_crs(4326) %>% 
                       st_transform(32654)
                     
-                    # assign watershed
                     sf_channel <- st_join(x, y, join = st_contains) %>% 
                       select(order = STRM_VAL.x,
                              tributary = STRM_VAL.y)

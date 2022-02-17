@@ -8,10 +8,6 @@ pacman::p_load(tidyverse,
 
 # analysis ----------------------------------------------------------------
 
-## in the following analysis, watersheds > 300km^2 were selected
-## small watersheds could have an issue of estimating the rate parameter
-## i.e., the number of links is limited
-
 ## network properties ####
 load(file = here::here("data_fmt/df_chl.RData"))
 
